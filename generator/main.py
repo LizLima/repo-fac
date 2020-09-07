@@ -12,16 +12,22 @@ from tensorboardX import SummaryWriter
 
 from vae import *
 
-path = '/media/liz/TOSHIBA EXT/Data/LFW/lfw128'
-path_result = '/media/liz/TOSHIBA EXT/Test/vae'
+path = '/media/liz/Files/Dataset/Data/LFW/lfw128'
+path_result = '/media/liz/Files/Test/vae'
 path_writer = ''
 print_iter = 5
 
+# summary writer
+writer_train = SummaryWriter('/home/liz/Documents/Github/repo-fac/test/vae/init_xav')
+writer_test = SummaryWriter('/home/liz/Documents/Github/repo-fac/test/vae/init_xav_test')
+
+
+
 # configuration
-latent_space    = 512
-batch_size      = 4
-learning_rate   = 0.0005
-trai_iters      = 40
+latent_space    = 250
+batch_size      = 20
+learning_rate   = 0.0001
+trai_iters      = 1000
 
 device = torch.device('cuda')
 
@@ -103,7 +109,7 @@ def loss_function(recon_x, x, mu, logvar):
 
     KLD = -0.5 * torch.mean(torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=1), dim=0)
 
-    return 0.01*KLD + MSE, KLD, MSE
+    return 0.005*KLD + MSE, KLD, MSE
 
 # def loss_function_(recon_x, x):
 #     # BCE = loss_bce(recon_x, x)
@@ -141,10 +147,11 @@ def getDataset(path):
 
 def main():
     # Define model
-    model = VAE(latent_space, 5, 3).to(device)
+    model = VAE(latent_space, True).to(device)
 
     # xavier initialization 
     model.apply(weights_init)
+    # model.weight_init(mean=0, std=0.02)
 
     #optimiser Adam optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
@@ -154,11 +161,7 @@ def main():
     # Datasource
     train_dataset, test_dataset = getDataset(path)
 
-    # summary writer
-    writer_train = SummaryWriter('vae_5layer')
-    writer_test = SummaryWriter('vae_5layer')
-
-
+    
     # Train and test 
     for i in range(trai_iters):
 
@@ -181,7 +184,7 @@ def main():
             sample = torch.randn(num_batch, latent_space).to(device)
             sample = model.decode(sample).cpu()
             vutils.save_image(sample.view(num_batch, 3, 128, 128),
-                       path_result + 'sample_' + str(trai_iters) + '.png', normalize=True)
+                       path_result + '/sample/sample_' + str(i) + '.png', normalize=True)
 
 
 if __name__ == "__main__":
