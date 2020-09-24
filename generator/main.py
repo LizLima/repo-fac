@@ -12,19 +12,19 @@ from tensorboardX import SummaryWriter
 
 from vae import *
 
-path = '/media/liz/Files/Dataset/Data/LFW/lfw128'
+path = '/media/liz/Files/Datasets/GAN/CelebA/Img/data'
 path_result = '/media/liz/Files/Test/vae'
 path_writer = ''
 print_iter = 5
 
 # summary writer
-writer_train = SummaryWriter('/home/liz/Documents/Github/repo-fac/test/vae/init_xav')
-writer_test = SummaryWriter('/home/liz/Documents/Github/repo-fac/test/vae/init_xav_test')
+writer_train = SummaryWriter('/home/liz/Documents/Github/repo-fac/test/vae/init_xav_256_ca')
+writer_test = SummaryWriter('/home/liz/Documents/Github/repo-fac/test/vae/init_xav_256_test_ca')
 
 
 
 # configuration
-latent_space    = 250
+latent_space    = 256
 batch_size      = 20
 learning_rate   = 0.0001
 trai_iters      = 1000
@@ -126,7 +126,7 @@ def loss_function(recon_x, x, mu, logvar):
 def getDataset(path):
     data = datasets.ImageFolder(path, 
                     transform=transforms.Compose(
-                                [transforms.Resize(128),
+                                [transforms.Resize((128, 128)),
                                 transforms.ToTensor(),
                                 transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                                     std=[0.229, 0.224, 0.225]),

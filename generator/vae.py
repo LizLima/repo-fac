@@ -12,22 +12,28 @@ class VAE(nn.Module):
         self.isTraining = isTraining
 
         # Define layer of encoder with leaky relu
-        self.conv0 = nn.Conv2d(in_channels=3, out_channels=16, kernel_size=5, stride=2, padding=2)
-        self.bn0 = nn.BatchNorm2d(16) # default eps=1e-05
+        self.conv0 = nn.Conv2d(in_channels=3, out_channels=64, kernel_size=7, stride=1, padding=3)
+        self.bn0 = nn.BatchNorm2d(64) # default eps=1e-05
 
-        self.conv1 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=5, stride=2, padding=2)
-        self.bn1 = nn.BatchNorm2d(32)
+        self.conv1 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=5, stride=2, padding=2)
+        self.bn1 = nn.BatchNorm2d(64)
 
-        self.conv2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=5, stride=2, padding=2)
-        self.bn2 = nn.BatchNorm2d(64)
+        self.conv2 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=2, padding=1)
+        self.bn2 = nn.BatchNorm2d(128)
 
-        self.conv3 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=5, stride=2, padding=2)
-        self.bn3 = nn.BatchNorm2d(128)
+        self.conv3 = nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, stride=2, padding=1)
+        self.bn3 = nn.BatchNorm2d(256)
+
+        self.conv4 = nn.Conv2d(in_channels=256, out_channels=512, kernel_size=3, stride=2, padding=1)
+        self.bn4 = nn.BatchNorm2d(512)
 
         self.lRelu = nn.LeakyReLU(negative_slope= 0.2)
 
         # Latent vectors mu and sigma
-        self.fc1 = nn.Linear(8192, self.z_dim)
+        self.fc0 = nn.Linear(32768, 512)
+        self.fc_bn0 = nn.BatchNorm1d(512)
+
+        self.fc1 = nn.Linear(512, self.z_dim)
         self.fc_bn1 = nn.BatchNorm1d(self.z_dim)
 
         self.fc21 = nn.Linear(self.z_dim, self.z_dim)
@@ -36,21 +42,25 @@ class VAE(nn.Module):
         # Sampling vector
         self.fc3 = nn.Linear(self.z_dim, self.z_dim)
         self.fc_bn3 = nn.BatchNorm1d(self.z_dim)
-        self.fc4 = nn.Linear(self.z_dim, 8192)
-        self.fc_bn4 = nn.BatchNorm1d(8192)
+
+        self.fc4 = nn.Linear(self.z_dim, 32768)
+        self.fc_bn4 = nn.BatchNorm1d(32768)
       
         # Decoder
         
-        self.dconv0 = nn.ConvTranspose2d(in_channels=128, out_channels=64,kernel_size=4, stride=2, padding=1)
-        self.bndc0 = nn.BatchNorm2d(64)
+        self.dconv0 = nn.ConvTranspose2d(in_channels=512, out_channels=256,kernel_size=4, stride=2, padding=1)
+        self.bndc0 = nn.BatchNorm2d(256)
 
-        self.dconv1 = nn.ConvTranspose2d(in_channels=64, out_channels=32,kernel_size=4, stride=2, padding=1)
-        self.bndc1 = nn.BatchNorm2d(32)
+        self.dconv1 = nn.ConvTranspose2d(in_channels=256, out_channels=128,kernel_size=4, stride=2, padding=1)
+        self.bndc1 = nn.BatchNorm2d(128)
 
-        self.dconv2 = nn.ConvTranspose2d(in_channels=32, out_channels=16,kernel_size=4, stride=2, padding=1)
-        self.bndc2 = nn.BatchNorm2d(16)
+        self.dconv2 = nn.ConvTranspose2d(in_channels=128, out_channels=64,kernel_size=4, stride=2, padding=1)
+        self.bndc2 = nn.BatchNorm2d(64)
 
-        self.dconv3 = nn.ConvTranspose2d(in_channels=16, out_channels=3,kernel_size=4, stride=2, padding=1)
+        self.dconv3 = nn.ConvTranspose2d(in_channels=64, out_channels=32,kernel_size=4, stride=2, padding=1)
+        self.bndc3 = nn.BatchNorm2d(32)
+
+        self.dconv4 = nn.ConvTranspose2d(in_channels=32, out_channels=3,kernel_size=3, stride=1, padding=1)
         
         self.relu = nn.ReLU()
         self.tanh = nn.Tanh()
@@ -74,13 +84,15 @@ class VAE(nn.Module):
         conv1 = self.lRelu(self.bn1(self.conv1(conv0)))
         conv2 = self.lRelu(self.bn2(self.conv2(conv1)))
         conv3 = self.lRelu(self.bn3(self.conv3(conv2)))
+        conv4 = self.lRelu(self.bn4(self.conv4(conv3)))
 
         # flatten ouput
-        size = conv3.size(1) * conv3.size(2) * conv3.size(3)
-        flatten = conv3.view(conv3.size(0), -1)
+        size = conv4.size(1) * conv4.size(2) * conv4.size(3)
+        flatten = conv4.view(conv4.size(0), -1)
+        fc0 = self.relu(self.fc_bn0(self.fc0(flatten)))
 
         # Latent vectors
-        fc1 = self.relu(self.fc_bn1(self.fc1(flatten)))
+        fc1 = self.relu(self.fc_bn1(self.fc1(fc0)))
         mu = self.fc21(fc1)
         logvar = self.fc22(fc1)
 
@@ -92,12 +104,13 @@ class VAE(nn.Module):
         # Decode
         # print(z.shape)
         fc3 = self.relu(self.fc_bn3(self.fc3(z)))
-        fc4 = self.relu(self.fc_bn4(self.fc4(fc3))).view(-1, 128, 8, 8)
+        fc4 = self.relu(self.fc_bn4(self.fc4(fc3))).view(-1, 512, 8, 8)
 
         conv5 = self.relu(self.bndc0(self.dconv0(fc4)))
         conv6 = self.relu(self.bndc1(self.dconv1(conv5)))
         conv7 = self.relu(self.bndc2(self.dconv2(conv6)))
-        out = self.tanh(self.dconv3(conv7).view(-1, 3, 128, 128))
+        conv8 = self.relu(self.bndc3(self.dconv3(conv7)))
+        out = self.tanh(self.dconv4(conv8).view(-1, 3, 128, 128))
 
         return out 
 
@@ -197,5 +210,5 @@ class VAE(nn.Module):
 #         m.bias.data.zero_()
 
 # device = torch.device('cuda')
-# model = VAE(100, 5, 3).to(device)
+# model = VAE(256, True).to(device)
 # model = summary(model, (3,128,128))
